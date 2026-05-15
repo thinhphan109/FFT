@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>Đồ án FFT 8-point Radix-2 — Slide bảo vệ</title>
+<style>
+  :root {
+    --bg-1: #0f172a;
+    --bg-2: #1e293b;
+    --accent: #38bdf8;
+    --accent-2: #a78bfa;
+    --text: #e2e8f0;
+    --muted: #94a3b8;
+    --code: #0b1224;
+    --good: #4ade80;
+    --warn: #fbbf24;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: linear-gradient(135deg, var(--bg-1), var(--bg-2));
+    color: var(--text);
+    font-family: 'Segoe UI', Inter, system-ui, sans-serif;
+    overflow: hidden;
+    min-height: 100vh;
+  }
+  .deck {
+    width: 100vw; height: 100vh;
+    overflow: hidden;
+    position: relative;
+  }
+  .slide {
+    width: 100vw; height: 100vh;
+    padding: 4vh 6vw;
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    animation: fadeIn 0.4s ease-out;
+  }
+  .slide.active { display: flex; }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  h1 {
+    font-size: 3.2em;
+    background: linear-gradient(90deg, var(--accent), var(--accent-2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 0.4em;
+    line-height: 1.1;
+  }
+  h2 {
+    font-size: 2.2em;
+    color: var(--accent);
+    margin-bottom: 0.6em;
+    border-left: 5px solid var(--accent);
+    padding-left: 16px;
+  }
+  h3 { font-size: 1.4em; color: var(--accent-2); margin: 1em 0 0.4em; }
+  p, li { font-size: 1.15em; line-height: 1.55; color: var(--text); }
+  ul { padding-left: 1.4em; }
+  li { margin-bottom: 0.5em; }
+  .subtitle { font-size: 1.3em; color: var(--muted); margin-bottom: 1em; }
+  .meta { color: var(--muted); margin-top: 1em; font-size: 1em; }
+  .badge {
+    display: inline-block;
+    background: rgba(56, 189, 248, 0.18);
+    color: var(--accent);
+    padding: 4px 12px;
+    border-radius: 99px;
+    font-size: 0.85em;
+    border: 1px solid var(--accent);
+    margin-right: 6px;
+  }
+  pre {
+    background: var(--code);
+    padding: 18px 22px;
+    border-radius: 12px;
+    color: #cbd5e1;
+    font-family: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+    font-size: 0.92em;
+    border: 1px solid rgba(56,189,248,0.25);
+    overflow: auto;
+    line-height: 1.45;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1em 0;
+  }
+  th, td {
+    padding: 10px 14px;
+    border-bottom: 1px solid rgba(148,163,184,0.25);
+    text-align: left;
+  }
+  th { background: rgba(56,189,248,0.1); color: var(--accent); }
+  tr:hover td { background: rgba(56,189,248,0.05); }
+  .grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    align-items: start;
+  }
+  .card {
+    background: rgba(15, 23, 42, 0.6);
+    border: 1px solid rgba(148,163,184,0.2);
+    border-radius: 14px;
+    padding: 20px 22px;
+    backdrop-filter: blur(10px);
+  }
+  .nav {
+    position: fixed;
+    bottom: 18px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    background: rgba(15,23,42,0.85);
+    border: 1px solid rgba(148,163,184,0.3);
+    border-radius: 99px;
+    padding: 6px 18px;
+    backdrop-filter: blur(8px);
+  }
+  .nav button {
+    background: transparent;
+    border: none;
+    color: var(--text);
+    font-size: 1.4em;
+    cursor: pointer;
+    padding: 4px 8px;
+    transition: color 0.2s;
+  }
+  .nav button:hover { color: var(--accent); }
+  .nav .counter { color: var(--muted); font-size: 0.95em; min-width: 70px; text-align: center; }
+  .progress {
+    position: fixed; top: 0; left: 0; height: 3px;
+    background: linear-gradient(90deg, var(--accent), var(--accent-2));
+    transition: width 0.3s ease;
+    z-index: 100;
+  }
+  .ascii {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78em;
+    line-height: 1.35;
+    white-space: pre;
+    color: #93c5fd;
+  }
+  .check { color: var(--good); }
+  .warn { color: var(--warn); }
+  .center { text-align: center; }
+</style>
+</head>
+<body>
+
+<div class="progress" id="progress"></div>
+
+<div class="deck" id="deck">
+
+  <!-- Slide 1: Title -->
+  <section class="slide active">
+    <div class="center">
+      <span class="badge">Verilog HDL</span>
+      <span class="badge">Fixed-Point Q1.15</span>
+      <span class="badge">Radix-2 DIT</span>
+    </div>
+    <h1 style="margin-top: 30px;">Thiết kế bộ tính toán FFT 8-điểm</h1>
+    <p class="subtitle">Radix-2 Decimation-In-Time bằng Verilog HDL</p>
+    <div class="meta">
+      <p><strong>Đồ án môn học:</strong> Thiết kế hệ thống vi mạch số</p>
+      <p><strong>Nhóm thực hiện:</strong> ____________________</p>
+      <p><strong>GVHD:</strong> ____________________</p>
+      <p><strong>Năm học:</strong> 2025–2026</p>
+    </div>
+  </section>
+
+  <!-- Slide 2: Nội dung -->
+  <section class="slide">
+    <h2>Nội dung trình bày</h2>
+    <ol style="font-size: 1.25em; line-height: 2; padding-left: 1.4em;">
+      <li>Giới thiệu đề tài và mục tiêu</li>
+      <li>Cơ sở lý thuyết DFT/FFT</li>
+      <li>Thuật toán Radix-2 Decimation-In-Time</li>
+      <li>Định dạng số fixed-point Q1.15</li>
+      <li>Kiến trúc thiết kế và sơ đồ khối</li>
+      <li>Mô tả các module Verilog</li>
+      <li>Mô phỏng và kết quả</li>
+      <li>So sánh với Python NumPy</li>
+      <li>Ước lượng tài nguyên synthesis</li>
+      <li>Kết luận và hướng phát triển</li>
+    </ol>
+  </section>
+
+  <!-- Slide 3: Đặt vấn đề -->
+  <section class="slide">
+    <h2>1. Đặt vấn đề</h2>
+    <div class="grid-2">
+      <div class="card">
+        <h3>FFT là gì?</h3>
+        <p>FFT (Fast Fourier Transform) là thuật toán biến đổi tín hiệu từ <strong>miền thời gian</strong> sang <strong>miền tần số</strong>.</p>
+        <p style="margin-top: 10px;">Giảm độ phức tạp DFT từ <code>O(N²)</code> xuống <code>O(N·logN)</code>.</p>
+      </div>
+      <div class="card">
+        <h3>Ứng dụng</h3>
+        <ul>
+          <li>📡 OFDM trong 4G/5G/Wi-Fi</li>
+          <li>🎵 Nén âm thanh MP3, AAC</li>
+          <li>🖼️ Nén ảnh JPEG (DCT họ FFT)</li>
+          <li>📊 Phân tích phổ, đo dao động</li>
+          <li>🛰️ Radar, sonar</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- Slide 4: Mục tiêu -->
+  <section class="slide">
+    <h2>2. Mục tiêu đồ án</h2>
+    <div class="grid-2">
+      <div class="card">
+        <h3>🎯 Mục tiêu chính</h3>
+        <ul>
+          <li>Thiết kế lõi FFT 8-điểm trên Verilog HDL</li>
+          <li>Sử dụng kiến trúc Radix-2 DIT</li>
+          <li>Số fixed-point Q1.15 (16-bit)</li>
+          <li>Mô phỏng & verification bằng testbench</li>
+          <li>Đối chiếu Python NumPy</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>📦 Phạm vi</h3>
+        <ul>
+          <li>N = 8 (parallel input/output)</li>
+          <li>3 stage pipeline</li>
+          <li>Latency: 5 chu kỳ</li>
+          <li>Throughput: 1 transform/cycle</li>
+          <li>Mục tiêu f<sub>max</sub> ≥ 100 MHz</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- Slide 5: DFT -->
+  <section class="slide">
+    <h2>3. Lý thuyết DFT</h2>
+    <div class="card">
+      <h3>Công thức Discrete Fourier Transform</h3>
+      <pre>X[k] = Σ x[n] · e^(-j·2π·k·n/N)        n = 0 .. N-1</pre>
+      <p style="margin-top: 12px;">Với N = 8, cần 64 phép nhân phức và 56 phép cộng phức ⇒ <strong>O(N²)</strong>.</p>
+    </div>
+    <div class="card" style="margin-top: 20px;">
+      <h3>Thuật toán FFT (Cooley–Tukey 1965)</h3>
+      <p>Phân chia DFT N điểm thành 2 DFT N/2 điểm theo:</p>
+      <ul>
+        <li><strong>DIT</strong> — Decimation In Time (chia theo n chẵn/lẻ)</li>
+        <li><strong>DIF</strong> — Decimation In Frequency (chia theo k thấp/cao)</li>
+      </ul>
+      <p style="margin-top: 10px;">Đồ án này sử dụng <strong>Radix-2 DIT</strong>.</p>
+    </div>
+  </section>
+
+  <!-- Slide 6: Twiddle -->
+  <section class="slide">
+    <h2>4. Twiddle factor W₈ᵏ</h2>
+    <p style="margin-bottom: 14px;">W<sub>N</sub><sup>k</sup> = e<sup>−j·2πk/N</sup></p>
+    <table>
+      <tr><th>k</th><th>Re (float)</th><th>Im (float)</th><th>Re Q1.15</th><th>Im Q1.15</th></tr>
+      <tr><td>0</td><td>1.0000</td><td>0.0000</td><td>32767</td><td>0</td></tr>
+      <tr><td>1</td><td>0.7071</td><td>−0.7071</td><td>23170</td><td>−23170</td></tr>
+      <tr><td>2</td><td>0.0000</td><td>−1.0000</td><td>0</td><td>−32768</td></tr>
+      <tr><td>3</td><td>−0.7071</td><td>−0.7071</td><td>−23170</td><td>−23170</td></tr>
+    </table>
+    <p style="margin-top: 12px;">Các hệ số 4..7 đối xứng tâm: W₈⁴ = −W₈⁰, W₈⁵ = −W₈¹, W₈⁶ = −W₈², W₈⁷ = −W₈³</p>
+  </section>
+
+  <!-- Slide 7: Q1.15 -->
+  <section class="slide">
+    <h2>5. Định dạng Q1.15</h2>
+    <div class="grid-2">
+      <div class="card">
+        <h3>Format</h3>
+        <pre>Bit  : 15 14 13 ... 0
+       ┌──┬─────────────┐
+       │S │ 15 frac bits│
+       └──┴─────────────┘
+Range: [-1.0, +1.0)
+LSB  : 1/32768 ≈ 30.5 μ</pre>
+      </div>
+      <div class="card">
+        <h3>Quy tắc nhân</h3>
+        <pre>Q1.15 × Q1.15 = Q2.30
+truncate bits [30:15] → Q1.15
+
+A = 0.5  → 16384
+B = 0.5  → 16384
+A × B = 0.25
+       = 0x10000000 (Q2.30)
+       → 0x2000 = 8192 (Q1.15)</pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- Slide 8: Block diagram -->
+  <section class="slide">
+    <h2>6. Sơ đồ khối tổng thể</h2>
+    <pre class="ascii">
+   x[0..7]   ┌─────────────────┐
+   ───────►│ Input Register  │
+            └────────┬────────┘
+                     ▼
+            ┌─────────────────┐
+            │ Bit-reversal    │   0,4,2,6,1,5,3,7
+            └────────┬────────┘
+                     ▼
+            ┌─────────────────┐
+            │ Stage 1 (4 BF)  │   W₂⁰
+            └────────┬────────┘ ◄── pipe reg
+                     ▼
+            ┌─────────────────┐
+            │ Stage 2 (4 BF)  │   W₄⁰, W₄¹
+            └────────┬────────┘ ◄── pipe reg
+                     ▼
+            ┌─────────────────┐
+            │ Stage 3 (4 BF)  │   W₈⁰, W₈¹, W₈², W₈³
+            └────────┬────────┘ ◄── pipe reg
+                     ▼
+            ┌─────────────────┐
+   X[0..7]  │ Output Register │
+   ◄───────└─────────────────┘
+    </pre>
+  </section>
+
+  <!-- Slide 9: Butterfly -->
+  <section class="slide">
+    <h2>7. Butterfly Radix-2 DIT</h2>
+    <div class="grid-2">
+      <div class="card">
+        <h3>Phương trình</h3>
+        <pre>y0 = (A + B·W) / 2
+y1 = (A − B·W) / 2
+
+scale 1/2 mỗi stage
+→ tổng scale 1/N = 1/8
+→ chống overflow Q1.15</pre>
+      </div>
+      <div class="card">
+        <h3>Sơ đồ</h3>
+        <pre class="ascii">
+A ──────●──[+]── y0
+        │   │
+        │  [-]── y1
+        │   │
+B ─[×W]─●───┘
+        </pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- Slide 10: Source code highlight -->
+  <section class="slide">
+    <h2>8. Mã nguồn — complex_mul</h2>
+    <pre>module complex_mul #(parameter W = 16)(
+    input  signed [W-1:0] a_re, a_im, b_re, b_im,
+    output signed [W-1:0] y_re, y_im
+);
+  wire signed [2*W-1:0] m_rr = a_re * b_re;
+  wire signed [2*W-1:0] m_ii = a_im * b_im;
+  wire signed [2*W-1:0] m_ri = a_re * b_im;
+  wire signed [2*W-1:0] m_ir = a_im * b_re;
+
+  wire signed [2*W-1:0] real_full = m_rr - m_ii;
+  wire signed [2*W-1:0] imag_full = m_ri + m_ir;
+
+  assign y_re = real_full[2*W-2 : W-1];   // Q2.30 → Q1.15
+  assign y_im = imag_full[2*W-2 : W-1];
+endmodule</pre>
+  </section>
+
+  <!-- Slide 11: Test cases -->
+  <section class="slide">
+    <h2>9. Testbench — 3 ca kiểm thử</h2>
+    <table>
+      <tr><th>Test</th><th>Input</th><th>Expected output</th><th>Status</th></tr>
+      <tr>
+        <td>1 — Impulse</td>
+        <td>x = [1, 0, 0, 0, 0, 0, 0, 0]</td>
+        <td>X[k] = 1/8 (≈ 4095) ∀ k</td>
+        <td><span class="check">✓ PASS</span></td>
+      </tr>
+      <tr>
+        <td>2 — DC</td>
+        <td>x = [0.5, 0.5, ..., 0.5]</td>
+        <td>X[0] = 0.5 (≈ 16384), X[k≠0] = 0</td>
+        <td><span class="check">✓ PASS</span></td>
+      </tr>
+      <tr>
+        <td>3 — Cosine</td>
+        <td>0.5·cos(2πn/8)</td>
+        <td>Peak ở bin 1 và bin 7</td>
+        <td><span class="check">✓ PASS</span></td>
+      </tr>
+    </table>
+    <p style="margin-top: 16px;">Sai số chấp nhận: ±32 LSB (do truncation Q1.15).</p>
+  </section>
+
+  <!-- Slide 12: Python verify -->
+  <section class="slide">
+    <h2>10. Đối chiếu Python NumPy</h2>
+    <pre>=== Test 1: Impulse ===
+idx    re_q15    im_q15        re_f
+  0      4096         0     0.12500
+  1      4096         0     0.12500
+  ...
+  7      4096         0     0.12500
+
+=== Test 3: Cosine k=1 ===
+idx    re_q15    im_q15        re_f
+  1      8192         0     0.25000   ← peak
+  7      8192         0     0.25000   ← peak
+  others    0         0     0.00000</pre>
+    <p style="margin-top: 12px;"><span class="check">✓</span> Verilog output trùng khớp với NumPy trong sai số ±32 LSB.</p>
+  </section>
+
+  <!-- Slide 13: Resources -->
+  <section class="slide">
+    <h2>11. Ước lượng tài nguyên</h2>
+    <table>
+      <tr><th>Resource</th><th>Estimate</th><th>Note</th></tr>
+      <tr><td>Multiplier 16×16</td><td>12</td><td>1 mỗi butterfly × 12 BF</td></tr>
+      <tr><td>Slice LUT</td><td>~1500</td><td>Xilinx 7-series</td></tr>
+      <tr><td>Slice FF</td><td>~800</td><td>3 pipe stage × 8 sample × 32-bit</td></tr>
+      <tr><td>f<sub>max</sub></td><td>~150 MHz</td><td>Critical path: complex_mul + butterfly</td></tr>
+      <tr><td>Latency</td><td>5 cycles</td><td>1 IR + 3 stage + 1 OR</td></tr>
+      <tr><td>Throughput</td><td>1 trans/cycle</td><td>Fully pipelined</td></tr>
+    </table>
+  </section>
+
+  <!-- Slide 14: Conclusion -->
+  <section class="slide">
+    <h2>12. Kết luận</h2>
+    <div class="grid-2">
+      <div class="card">
+        <h3>✅ Đã hoàn thành</h3>
+        <ul>
+          <li>Lõi FFT 8-điểm Q1.15 RTL hoàn chỉnh</li>
+          <li>3/3 test case pass</li>
+          <li>Đối chiếu thành công với NumPy</li>
+          <li>Pipeline 5 chu kỳ, throughput 1/cycle</li>
+          <li>Tài nguyên hợp lý cho FPGA mid-range</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>🚀 Hướng phát triển</h3>
+        <ul>
+          <li>Mở rộng N = 16/32/64</li>
+          <li>Thêm AXI4-Stream interface</li>
+          <li>Hỗ trợ IFFT (đảo dấu twiddle)</li>
+          <li>Floating-point FP32</li>
+          <li>So sánh với Xilinx FFT IP</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- Slide 15: Q&A -->
+  <section class="slide">
+    <div class="center" style="margin: auto;">
+      <h1 style="font-size: 5em;">Q & A</h1>
+      <p class="subtitle" style="margin-top: 30px;">Cảm ơn thầy/cô và các bạn đã lắng nghe</p>
+      <p style="margin-top: 30px; color: var(--muted);">📁 GitHub: <span style="color: var(--accent)">github.com/your-team/fft8-verilog</span></p>
+    </div>
+  </section>
+
+</div>
+
+<div class="nav">
+  <button onclick="prev()">◀</button>
+  <span class="counter" id="counter">1 / 15</span>
+  <button onclick="next()">▶</button>
+</div>
+
+<script>
+  const slides = document.querySelectorAll('.slide');
+  const total = slides.length;
+  let idx = 0;
+  const counter = document.getElementById('counter');
+  const progress = document.getElementById('progress');
+
+  function show(i) {
+    slides.forEach(s => s.classList.remove('active'));
+    idx = (i + total) % total;
+    slides[idx].classList.add('active');
+    counter.textContent = (idx + 1) + ' / ' + total;
+    progress.style.width = ((idx + 1) / total * 100) + '%';
+  }
+
+  function next() { show(idx + 1); }
+  function prev() { show(idx - 1); }
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') next();
+    else if (e.key === 'ArrowLeft' || e.key === 'PageUp') prev();
+    else if (e.key === 'Home') show(0);
+    else if (e.key === 'End') show(total - 1);
+  });
+
+  show(0);
+</script>
+
+</body>
+</html>

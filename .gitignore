@@ -1,0 +1,47 @@
+# Simulation outputs
+*.vvp
+*.vcd
+*.fst
+*.wlf
+*.lxt
+*.lxt2
+
+# ModelSim
+work/
+transcript
+modelsim.ini
+vsim.wlf
+*.mpf
+
+# Vivado
+*.jou
+*.log
+*.str
+*.pb
+*.dir/
+.Xil/
+*.cache/
+*.hw/
+*.ip_user_files/
+*.runs/
+*.sim/
+*.srcs/
+*.gen/
+*.xpr
+
+# Quartus
+db/
+incremental_db/
+output_files/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# OS / Editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
